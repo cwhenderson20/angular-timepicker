@@ -97,9 +97,9 @@ describe('Timepicker directive', function() {
 			$scope.models.step = '30';
 			$scope.$apply();
 
-			expect(list.find('li:first-child a').text()).toBe('07:00');
-			expect(list.find('li:nth-child(2) a').text()).toBe('07:30');
-			expect(list.find('li:last-child a').text()).toBe('19:00');
+			expect(list.find('li:first-child').text()).toBe('07:00');
+			expect(list.find('li:nth-child(2)').text()).toBe('07:30');
+			expect(list.find('li:last-child').text()).toBe('19:00');
 		});
 
 		it('should be able to parse manually entered time', function() {
@@ -143,7 +143,7 @@ describe('Timepicker directive', function() {
 				$scope.models.time = new Date(2012, 11, 15, 13, 30, 0);
 			});
 			
-			inputEl.next().find('li:first-child a').click();
+			inputEl.next().find('li:first-child').click();
 
 			expect($scope.models.time.getFullYear()).toEqual(2012);
 			expect($scope.models.time.getMonth()).toEqual(11);
@@ -187,7 +187,7 @@ describe('Timepicker directive', function() {
 			inputEl.triggerHandler('focus');
           
 			// Initial state
-			expect(list.find('li.active a').text()).toBe('13:30');
+			expect(list.find('li.active').text()).toBe('13:30');
 
 			// Keypress DOWN
 			var e = $.Event('keypress');
@@ -195,7 +195,7 @@ describe('Timepicker directive', function() {
 			inputEl.trigger(e);
 
 			// Final state
-			expect(list.find('li.active a').text()).toBe('14:00');
+			expect(list.find('li.active').text()).toBe('14:00');
 		});
 
 		it('should select the previous item when UP key is pressed', function() {
@@ -211,7 +211,7 @@ describe('Timepicker directive', function() {
 			inputEl.triggerHandler('focus');
 
 			// Initial state
-			expect(list.find('li.active a').text()).toBe('13:30');
+			expect(list.find('li.active').text()).toBe('13:30');
 
 			// Keypress UP
 			var e = $.Event('keypress');
@@ -219,7 +219,7 @@ describe('Timepicker directive', function() {
 			inputEl.trigger(e);
 
 			// Final state
-			expect(list.find('li.active a').text()).toBe('13:00');
+			expect(list.find('li.active').text()).toBe('13:00');
 		});
 	});
 });

@@ -3,8 +3,8 @@
 (function (angular) {
     'use strict';
 
-    angular.module('dnTimepicker', ['ui.bootstrap.position', 'dateParser'])
-        .factory('dnTimepickerHelpers', function () {
+    angular.module('dnTimepicker', ['dateParser'])
+        .factory('dnTimepickerHelpers', ["$window", "$document", function ($window, $document) {
             return {
                 stringToMinutes: function (str) {
                     if (!str) {
@@ -46,11 +46,54 @@
                         }
                     }
                     return index;
+                },
+
+                position: function(elem) {
+                    function getRawNode(elem) {
+                        return elem.nodeName ? elem : elem[0] || elem;
+                    }
+                    function offset(elem) {
+                        var elemBCR = elem.getBoundingClientRect();
+                        return {
+                            width: Math.round(angular.isNumber(elemBCR.width) ? elemBCR.width : elem.offsetWidth),
+                            height: Math.round(angular.isNumber(elemBCR.height) ? elemBCR.height : elem.offsetHeight),
+                            top: Math.round(elemBCR.top + ($window.pageYOffset || $document[0].documentElement.scrollTop)),
+                            left: Math.round(elemBCR.left + ($window.pageXOffset || $document[0].documentElement.scrollLeft))
+                        };
+                    }
+                    function offsetParent(elem) {
+                        var offsetParent = elem.offsetParent || $document[0].documentElement;
+                        function isStaticPositioned(el) {
+                            return ($window.getComputedStyle(el).position || "static") === "static";
+                        }
+                        while (offsetParent && offsetParent !== $document[0].documentElement && isStaticPositioned(offsetParent)) {
+                            offsetParent = offsetParent.offsetParent;
+                        }
+                        return offsetParent || $document[0].documentElement;
+                    }
+                    elem = getRawNode(elem);
+                    var elemOffset = offset(elem);
+                    var parent = offsetParent(elem);
+                    var parentOffset = {
+                        top: 0,
+                        left: 0
+                    };
+                    if (parent !== $document[0].documentElement) {
+                        parentOffset = offset(parent);
+                        parentOffset.top += parent.clientTop - parent.scrollTop;
+                        parentOffset.left += parent.clientLeft - parent.scrollLeft;
+                    }
+                    return {
+                        width: Math.round(angular.isNumber(elemOffset.width) ? elemOffset.width : elem.offsetWidth),
+                        height: Math.round(angular.isNumber(elemOffset.height) ? elemOffset.height : elem.offsetHeight),
+                        top: Math.round(elemOffset.top - parentOffset.top),
+                        left: Math.round(elemOffset.left - parentOffset.left)
+                    };
                 }
             };
-        })
-        .directive('dnTimepicker', ['$compile', '$parse', '$uibPosition', '$document', 'dateFilter', '$dateParser', 'dnTimepickerHelpers', '$log',
-            function ($compile, $parse, $position, $document, dateFilter, $dateParser, dnTimepickerHelpers, $log) {
+        }])
+        .directive('dnTimepicker', ['$compile', '$parse', '$document', 'dateFilter', '$dateParser', 'dnTimepickerHelpers', '$log',
+            function ($compile, $parse, $document, dateFilter, $dateParser, dnTimepickerHelpers, $log) {
                 return {
                     restrict: 'A',
                     require: 'ngModel',
@@ -197,7 +240,7 @@
                         // Opens the timepicker
                         scope.openPopup = function () {
                             // Set position
-                            scope.position = $position.position(element);
+                            scope.position = dnTimepickerHelpers.position(element);
                             scope.position.top = scope.position.top + element.prop('offsetHeight');
 
                             // Open list
@@ -230,24 +273,41 @@
                             .bind('focus', function () {
                                 scope.openPopup();
                             })
-                            .bind("blur", function() {
-                                scope.closePopup();
-                            })
                             .bind('keypress keyup', function (e) {
-                                if (e.which === 38 && scope.timepicker.activeIdx > 0) { // UP
+                                if (e.which === 38 && scope.timepicker.activeIdx > 0) { 
+                                    // UP
                                     scope.timepicker.activeIdx--;
                                     scope.scrollToSelected();
-                                } else if (e.which === 40 && scope.timepicker.activeIdx < scope.timepicker.optionList().length - 1) { // DOWN
+                                } else if (e.which === 40 && scope.timepicker.activeIdx < scope.timepicker.optionList().length - 1) {
+                                    // DOWN
                                     scope.timepicker.activeIdx++;
                                     scope.scrollToSelected();
-                                } else if (e.which === 13 && scope.timepicker.activeIdx > -1) { // ENTER
+                                } else if (e.which === 13 && scope.timepicker.activeIdx > -1) {
+                                    // ENTER
                                     scope.select(scope.timepicker.optionList()[scope.timepicker.activeIdx]);
+                                    scope.closePopup();
+                                } else if (e.which === 27) {
+                                    // ESC
                                     scope.closePopup();
                                 }
                                 scope.$digest();
+                            })
+                            .bind("keydown", function (e) {
+                                if (e.which === 9) {
+                                    // TAB
+                                    scope.closePopup();
+                                }
                             });
 
                         // Close popup when clicked anywhere else in document
+                        $document.bind("mousedown", function(event) {
+                            if (scope.timepicker.isOpen && event.target !== element[0]) {
+                                if (!event.target.classList.contains("dropdown-item")) {
+                                    scope.closePopup();
+                                }
+                            }
+                        });
+
                         $document.bind('click', function (event) {
                             if (scope.timepicker.isOpen && event.target !== element[0]) {
                                 scope.closePopup();
@@ -264,7 +324,7 @@
                 restrict: 'A',
                 replace: true,
                 transclude: false,
-                template: '<ul class="dn-timepicker-popup dropdown-menu" ng-style="{display: timepicker.isOpen && \'block\' || \'none\', top: position.top+\'px\', left: position.left+\'px\'}"><li ng-repeat="time in timepicker.optionList()" ng-class="{active: isActive($index) }" ng-mouseenter="setActive($index)"><a ng-click="select(time)">{{time | date:timepicker.timeFormat}}</a></li></ul>',
+                template: '<ul class="dn-timepicker-popup dropdown-menu" ng-style="{display: timepicker.isOpen && \'block\' || \'none\', top: position.top+\'px\', left: position.left+\'px\'}"><li class="dropdown-item" ng-repeat="time in timepicker.optionList()" ng-class="{active: isActive($index) }" ng-mouseenter="setActive($index)" ng-click="select(time)">{{time | date:timepicker.timeFormat}}</li></ul>',
                 link: function (scope, element, attrs) {
                     scope.timepicker.element = element;
 
